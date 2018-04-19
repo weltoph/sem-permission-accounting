@@ -1,0 +1,632 @@
+\section{Permission Accounting}
+	%outline:
+%	\begin{itemize}
+%		%programming related:
+%		\item read/write difference
+%		\item mutual exclusion
+%		%logic/proof related:
+%		\item separation logic: conditional critical regions: CCR
+%		\item fractional permissions
+%		\item counting permissions
+%		\item combine both approaches
+%	\end{itemize}
+
+	\emph{Separation Logic} as introduced above is used to reason about mutable data
+	structures in the \emph{Heap} which is therefore separated into independent
+	parts. This separation can be used to address concurrency by separating
+	the \emph{Heap} and executing every concurrent program on its "own" part
+	of the \emph{Heap}. Furthermore a system of permissions is introduced to
+	share memory between concurrent threads as well as mechanisms to provide
+	mutual-exclusive access on memory. 
+
+	\subsection{Concurrency in \emph{Separation Logic}}
+	This approach on concurrency in \emph{Separation Logic} is predominantly
+	based on \cite{ConcurrencyInSepLogic} and \cite{PermAcc}.
+
+	Concurrently executing programs which access the same memory, threaten to
+	be \emph{racy}. This means that the values of variables or memory cells might not
+	be only dependent on the commands of the programs but also from unintended
+	access to shared memory by other programs. This may occur if two or more
+	programs access shared memory at the same time, then the result of both
+	operations depend on surrounding factors like for example the scheduler of
+	the machine. \emph{Racy} programs are not easily reasoned about because it requires
+	deep knowledge about the current state of the executing machine which might
+	differ for every execution. Therefore it seems reasonable to have a guaranty that
+	concurrent programs are not \emph{racy}, which is called \emph{race-free}.
+
+	In order to access variables \emph{race-freely} from concurrent programs
+	\cite{PermAcc} states that the variables
+	need to be part of one of the following three groups of variables:
+	Firstly, variables which are read and written exclusivly by one
+	program. Secondly, variables which are accessed from concurrent programs but
+	are only read. And thirdly, variables which are accessed from concurrent
+	programs but where the write access is only allowed in a mutually-exclusive
+	section of the program, i.e. a section which guarantees that in the
+	meantime no other thread accesses those variables.
+
+	In what follows a syntax for concurrent execution of programs is introduced as:
+	\begin{mydef}[Concurrent Execution]
+		For two programs $C_1,C_2$
+		$$C_1\parallel C_2$$
+		defines \emph{concurrent execution} of $C_1$ and $C_2$.
+	\end{mydef}
+
+	As stated above programs with variables read and written exclusivly by
+	the program itself are race-free, also multiple programs which only
+	\underline{read} from the same variables are race-free. This means
+	race-freedom can be guaranteed for multiple concurrently executed programs
+	if they only read from shared memory and if every modified variable is only
+	accessed exclusively by one of the programs.
+
+	\begin{mydef}[Concurrency Rule]
+	Given $n$ programs $C_1,\dots,C_n$ with individual
+	\emph{preconditions} $Q_1,\dots,Q_n$ and corresponding \emph{postconditions} $R_1,\dots,R_n$ where for
+	every $i$: $\{Q_i\}C_i\{R_i\}$ is partially correct and race-free. If
+	$\forall i,j \in \{1..n\}, i \neq j.(\text{free}(Q_i)\cup\text{free}(R_i))
+	\cap \text{modifies}(C_j)  = \emptyset$ then
+	$\{Q_1\ast\cdots\ast Q_n\}(C_1\parallel \cdots\parallel C_n)\{R_1\ast\cdots\ast R_n\}$
+	is also partially correct and race-free. Stated as inference rule:
+	\begin{prooftree}
+	\AxiomC{$\{Q_1\}C_1\{R_1\}\cdots\{Q_n\}C_n\{R_n\}$}
+	\UnaryInfC{$\{Q_1\ast\cdots\ast Q_n\}(C_1\parallel \cdots\parallel
+		C_n)\{R_1\ast\cdots\ast R_n\}$}
+	\end{prooftree}
+	\end{mydef}
+	\begin{myexp}[Concurrently executed Assignmend]
+	Just to convay a basic intuition on using the concurrency rule
+	the following example shows how three memory cells are assigned
+	different values concurrently
+	\begin{lstlisting}[mathescape]
+x := new();
+y := new();
+z := new();
+[x] := 5; $\parallel$ [y] := 7; $\parallel$ [z] := 13;
+	\end{lstlisting}
+	The program is obviously rather simple but it may help to examine an
+	easy example first. Now assertions are added, and as well some comments
+	to explain details:
+	\begin{lstlisting}[mathescape, escapeinside={-<}{>-}]
+-<\textcolor{green}{$\{\textit{emp}\}$}>-
+x := new();  // Axioms of Referenced Access
+-<\textcolor{green}{$\{x\mapsto -\}$}>-
+-<\textcolor{green}{$\therefore\{x\mapsto - \ast \textit{emp}\}$}>-
+// emp is the neutral element of the operator $\ast$ and can 
+// therefore be added to any heap
+y := new(); // Axioms of Referenced Access
+-<\textcolor{green}{$\{x\mapsto - \ast y \mapsto -\}$}>-
+// Note that new() is expected to return another value for $y$ than for $x$
+// because the cell $x$ points to is already allocated, and therefore $x\mapsto -$
+// and $y\mapsto -$ can be separated with $\ast$
+-<\textcolor{green}{$\therefore\{x\mapsto - \ast y\mapsto - \ast \textit{emp}\}$}>-
+z := new(); // Axioms of Referenced Access
+-<\textcolor{green}{$\{x\mapsto - \ast y\mapsto - \ast z\mapsto -\}$}>-
+[x] := 5; $\parallel$ [y] := 7; $\parallel$ [z] := 13;
+-<\textcolor{green}{$\{x\mapsto 5 \ast y\mapsto 7 \ast z\mapsto 13\}$}>- // Concurrency Rule
+	\end{lstlisting}
+	Actually, the side conditions of the \emph{Concurrency Rule} needs to be
+	checked to apply it. But this is omitted due to its simplicity.
+	\end{myexp}
+
+	But as stated above programs are also race-free if the access to a variable
+	or shared memory is guaranteed to be mutual-exclusive. In order to provide
+	such a mutual-exclusive access
+	the formal language which is used in this paper to define programs, is
+	extended with a mechanism of \emph{Conditional Critical Region(CCR)}. A
+	\emph{CCR} is used to provide mutual-exclusive access to resources, namely
+	variables and shared memory.
+	Those resources can be collected in a set which is called a \emph{bundle}.
+	For a \emph{bundle} $b$, a boolean expression $G$ and a program $C$ a
+	\emph{CCR} is a command of the form:
+	\begin{lstlisting}[mathescape]
+with $b$
+when $G$ do
+	$C$
+od
+	\end{lstlisting}
+	The idea is to provide mutual-exclusive access to all resources in the
+	\emph{bundle} $b$ within $G$ and $C$. This means that the 
+	resources in $b$ must not be accessed from outside the \emph{CCR},
+	but can be accessed from inside with the guarantee that there is no
+	other access at the same time from another program.
+
+	A \emph{CCR} is handled in the following way:
+	\begin{enumerate}
+		\item the \emph{bundle} $b$ is aquired, i. e. an exclusive access
+			on all items of the \emph{bundle} is guaranteed
+		\item the condition $G$ is evaluated
+		\item if $G$ is true, the program $C$ is executed and afterwards $b$ is
+			released
+		\item if $G$ is false, $b$ is released and the execution continues at step 1
+	\end{enumerate}
+	Having this in mind it is rather intuitive that this allows race-free sharing
+	of resources, because of step 1. But to link this syntactical element to
+	logical assertions, it is helpful to give another reading to the
+	"$\mapsto$ operator": It can be understood as the permission to access the
+	memory cell.
+	And this right to access the memory cells of $b$ is only granted within the
+	\emph{CCR}. Therefore to prove properties of a \emph{CCR} one needs an
+	invariant $I_b$ for a \emph{bundle} $b$ which is only accessible within the
+	\emph{CCR} and cannot be accessed from outside the \emph{CCR}. This invariant
+	is used in a similar way as in the proofs for loops in \emph{Hoare Calculus},
+	because if an invariant exists which all concurrent programs respect, this
+	assertion can always be guaranteed. The following rule formalises that the
+	variables of a \emph{bundle} can only be accessed within a \emph{CCR}:
+	
+	\begin{mydef}[CCR Rule]
+		For a \emph{bundle} $b$, a boolean expression $G$, a program $C$,
+		assertions $Q, R$ and an invariant $I_b$, the following inference rule
+		holds regarding race-freedom and partial correctness:
+	\begin{prooftree}
+		\AxiomC{$\{(Q\ast I_b) \land G\} C \{R \ast I_b\}$}
+		\UnaryInfC{$\{Q\}\text{with $b$ when $G$ do $C$ od}\{R\}$}
+	\end{prooftree}
+	\end{mydef}
+
+\subsection{Abstract Permission Model}
+	The abstraction of \emph{Permission Models} is mainly based on
+	\cite{freshlook} and \cite{PermAcc}.
+
+	As already mentioned the "$\mapsto$ operator" can be read as a permission to
+	access a certain memory cell. In the following this reading is expanded to
+	distinguish between read and write access to a cell. By now a memory cell can always
+	be part of only one independent part of the \emph{Heap} which is separated
+	from others by $\ast$. But a cell which is only read can be logically
+	associated with multiple part of the \emph{Heap} where all parts of the 
+	\emph{Heaps} need to agree on the value of the cell. This can be used to
+	formulate assertions for programs which only need a read access on a
+	cell. Obviously multiple possibilities to implement such a
+	\emph{Permission Accounting} exist. But all of these implementations need to
+	have certain properties. These properties are now defined and later on
+	different possibilities of actually realising a permission model are
+	introduced.
+
+	A model which allows \emph{Permission Accounting} needs to manage permission
+	associated with every access on cells of the \emph{Heap}. Therefore the
+	definition of \emph{Heaps} slightly adapts to
+	\begin{mydef}[Heap]
+		For a set of addresses $L$, a set of values $V$ and a set of
+		permissions $M$ a \emph{Heap} is defined as partial function
+		$$h: L \rightharpoonup (V\times M)$$
+	\end{mydef}
+	\noindent
+	Note that the set of addresses and the set of values are not explicitly
+	defined. For all \emph{Heaps} above always applied $L = \mathbb{N}$ and
+	$V = \textit{Integers}$. But although addressable memory cells are very
+	intuitive, the dynamically allocatable memory of programs might be
+	represented differently. For example with \emph{Petri Nets} \cite{seplogproof}.
+
+	Regarding the set of permissions $M$ the intuitive idea is that
+	exactly one \emph{source permission} exists which grants full access rights
+	on a cell including read and write permission as well as the permission to
+	dispose the cell. From a \emph{source permission} multiple read permissions
+	can be derived. Deriving a read permission from a \emph{source permission}
+	causes the \emph{source permission} to loose the right of writing and
+	disposing the cell, it becomes a read permission as well to avoid \emph{racy}
+	behaviour. A \emph{source permission} can always be regained by recombining
+	all permissions of a cell.
+	This is mathematically represented by a binary operator for the elements of
+	$M$ which adds permissions together and can be used to
+	define splitting of a permission. This operator is commutative, because the
+	order of how permissions are recombined does not matter. There is no neutral
+	element to this operator because the not granted permission is always
+	implicitly stated by not mentioning a cell in an assertion.
+	Additionally, certain elements can not be combined, for example two
+	\emph{source permissions} for the same cell. Mathematically speaking:
+	\begin{mydef}[Permission]
+		A set of permissions $M$ is equipped with a partial commutative
+		semigroup structure with the binary operator $\oplus$.
+	\end{mydef}
+	The \emph{source permission} needs to be unique and can not be expanded
+	further because it already is the maximal permission. Futhermore every
+	permission can be recombined to a \emph{source permission} again:
+	\begin{mydef}[Source permission]
+		In a set of permissions $M$ exists exactly one $m_W$ with:
+		$$\forall m\in M.m_W\oplus m\text{ is undefined}$$
+		$$\forall m\in M\setminus \{m_W\} \exists m'. m \oplus m' = m_W$$
+	\end{mydef}
+	This permission model is now connected to cells by expanding the operator
+	$\oplus$ to the set $(V\times M)$ as
+	$$(v,m)\oplus(v',m') =
+		\begin{cases}
+			(v,m\oplus m') &\text{ if $v=v'$ and $m\oplus m'$ \textit{defined}}\\
+			\text{undefined} &\text{ otherwise}\\
+		\end{cases}
+	$$
+	Note that two cells can only be combined if they agree on the value $v$.
+
+	Correspondingly, the operator is also applied to \emph{Heaps} but to fit
+	the definitions above it is named $\ast$:
+	\begin{mydef}[Separation of Heaps]
+		If for two \emph{Heaps} $h,h'$ for each $l\in \textit{dom}(h)\cap\textit{dom}(h')$ $h(l)\oplus h'(l)$
+		is defined the \emph{Separation} of those(written as $h\ast h'$)
+		is defined as:
+		$$(h\ast h')(l) =
+			\begin{cases}
+				h(l) &\text{ if $h'(l)$ undefined}\\
+				h'(l)&\text{ if $h(l)$ undefined}\\
+				h(l) \oplus h'(l) &\text{ otherwise}\\
+			\end{cases}
+		$$
+	\end{mydef}
+
+	This abstraction of \emph{Permission Accounting} needs to be connected to
+	the programming syntax. For convenience the following syntax will be used
+	for a program $C$, \emph{Stores} $s,s'$ and \emph{Heaps} $h,h'$:
+	$C,s,h \leadsto s', h'$. This means the command $C$ executed on a
+	\emph{Heap} $h$ and a \emph{Store} $s$ leads to a \emph{Heap} $h'$ and a
+	\emph{Store} $s'$. Using this new syntax the commands of the programming
+	language can be defined as follows:
+	\begin{mydef}[Semantics of commands]
+	For a \emph{Store} $s$, a set of values $V$, a set of addresses $L$, a
+	set of permissions $M$ with a maximum permission of $m_W$, a \emph{Heap}
+	$h:L \rightharpoonup (V\times M)$, integer expressions $E,E'$ and $v\in V$,
+	$l\in L$,$x\in \textit{Vars}$ the definition of the commands are:\\
+		\begin{center}
+		\begin{prooftree}
+		\AxiomC{$\llbracket E \rrbracket s = v$}
+		\UnaryInfC{$x:=E,\; s,h \leadsto (s|x\mapsto v),h$}
+		\end{prooftree}
+		\end{center}
+		\begin{center}
+		\begin{prooftree}
+		\AxiomC{$\llbracket E'\rrbracket s = l$}
+		\AxiomC{$\llbracket E \rrbracket s = v$}
+		\AxiomC{$h(l) = (-,m_W)$}
+		\TrinaryInfC{$[E'] := E,\; s,h \leadsto s,(h|l\mapsto(v,m_W))$}
+		\end{prooftree}
+		\end{center}
+		\begin{center}
+		\begin{prooftree}
+		\AxiomC{$\llbracket E'\rrbracket s = l$}
+		\AxiomC{$h(l) = (v, m)$}
+		\BinaryInfC{$x:=[E'],\; s,h \leadsto (s|x\mapsto v),h$}
+		\end{prooftree}
+		\end{center}
+		\begin{center}
+		\begin{prooftree}
+		\AxiomC{$l \in L \setminus \text{dom}(h)$}
+		\AxiomC{$\llbracket E \rrbracket s = v$}
+		\BinaryInfC{$x:=\text{new}(E),\; s,h \leadsto (s|x\mapsto l),(h|l\mapsto(v,m_W))$}
+		\end{prooftree}
+		\end{center}
+		\begin{center}
+		\begin{prooftree}
+		\AxiomC{$\llbracket E'\rrbracket s = l$}
+		\AxiomC{$h(l) = (v,m_W)$}
+		\BinaryInfC{$\text{dispose } E',\; s,h \leadsto s, (h\setminus{\{(l,v)\}})$}
+		\end{prooftree}
+		\end{center}
+	\end{mydef}
+	\noindent
+	Note that these are the definitions of the commands as above with enforced
+	permissions. A \emph{source permission} is necessary for changing the content
+	of and disposing a cell. Allocating a memory cell initially grants a
+	\emph{source permission}. Also this semantics are restricted to the
+	sequential execution of the programs.
+
+	These semantics of commands yield the following axiomatic Hoare-triples,
+	where the "$\mapsto$ operator" is decorated with a permission $z$ as
+	$\xmapsto{z}$:
+	\begin{mydef}[Axioms for Regulated Heap Access]
+	For an assertion $P$, a variable $x$, value expressions $E, E'$, which are
+	expressions that can be evaluated to a value from the value-set $V$, values
+	$v, n$, a permission $m$, a \emph{source permission} $m_W$ and a
+	\emph{Store} $s$ the axioms for a permission model $M$ are:\\
+	\begin{center}
+	\begin{tabular}{p{4cm}p{3cm}p{5cm}}
+		$\{P[E/x]\}$ & $x:=E$ & $\{P\}$ \\
+		$\{E\xmapsto{m_W}-\}$ & $[E'] := E$ & $\{E'\xmapsto{m_W}E\}$ \\
+		$\{E\xmapsto{m} n \land \llbracket x\rrbracket s =v\}$ & $x:=[E]$ & $\{E[v/x]\xmapsto{m}n\land\llbracket x\rrbracket s = n\}$\\
+		$\{\textit{emp}\}$ & $x:=\textit{new}()$ & $\{x \xmapsto{m_W} -\}$\\
+		$\{E\xmapsto{m_W}\}$ & $\textit{dispose}(E)$ & $\{\textit{emp}\}$\\
+	\end{tabular}
+	\end{center}
+	\end{mydef}
+
+	\subsection{Permission Models}
+	The different \emph{Permissions Models} are defined in \cite{freshlook} and
+	\cite{PermAcc}.
+
+	An example for a model of \emph{Permission Accounting} is the model of
+	\emph{Fractional Permissions}. The intuitive idea of \emph{Fractional Permissions}
+	is that $1$ is the \emph{source permission} and every permission can be split
+	into fractions to grant read permissions. Every permission
+	$z \in (0,1)\cap\mathbb{Q}$ is a read permission which can be split further.
+	Now, $\oplus_\text{FP}$ needs to be defined but this is rather
+	straightforward as:
+	\begin{mydef}[Combining Fractional Permissions]
+		For two permissions $z,z' \in (0,1]\cap\mathbb{Q}$ the combination
+		$z \oplus_\text{FP} z'$ is defined as:
+		$$z \oplus_\text{FP} z' =
+			\begin{cases}
+				\text{undefined} & \text{ if $z + z' > 1$} \\
+				z + z' & \text{ otherwise} \\
+			\end{cases}
+		$$
+	\end{mydef}
+	The formal model for $(M, m_W, \oplus)$ is
+	$((0,1]\cap\mathbb{Q},1,\oplus_\text{FP})$.
+
+	Another model for \emph{Permission Accounting} is the model of
+	\emph{Counting Permissions}. Here the \emph{source permission} gives away
+	tokens of read permissions and counts how many of these tokens are given
+	away. The \emph{source permission} is $0$. Read permissions are indicated
+	by negative numbers and with every derived read permission the token counter
+	is incremented for the \emph{source permission} which just means that the
+	permission is incremented by $1$. This leads to a special role of the
+	\emph{source permission} because it is the only permission indicated by
+	a positive number(or $0$). It can be understood as a central instance which
+	gives away read accesses, where for \emph{Fractional Permissions} are a
+	decentralised approach because every split produces two homogen
+	tokens. Formally \emph{Counting Permissions} are
+	$(\mathbb{Z},0,\oplus_\text{CP})$ with
+	$$z \oplus_\text{CP} z' =
+		\begin{cases}
+			\text{undefined} & \text{ if $z \geq 0$ and $z' \geq 0$}\\
+			\text{undefined} & \text{ if ($z\geq 0$ or  $z' \geq 0$) and $z + z' < 0$}\\
+			z + z'           & \text{ otherwise}
+		\end{cases}
+	$$
+
+	In \cite{freshlook} other models for \emph{Permission Accounting} are
+	mentioned like the \emph{Boolean Share Model} which models how
+	\emph{Separation Logic} was introduced above without
+	\emph{Permission Accounting}.
+
+	\emph{Permission Accounting} is used to restrict access to memory cells.
+	A restricted access to a memory cell, for example a read access can be
+	given to a program. And every command of the program must not change
+	the value of the memory cell. The property that a command does not change
+	the value of a memory cell is called \emph{Passivity}:
+	\begin{myprop}[Passivity]
+		A command $C$ shows \emph{Passivity} on a cell if it has access to
+		a cell but does not change it.
+	\end{myprop}
+	\begin{mylem}[Passivity of cells with read permissions]
+		If a command $C$ has only read access to a memory cell, it shows
+		\emph{Passivity} on that cell.
+	\end{mylem}
+	\begin{myproof}[Passivity of cells with read permissions]
+		Let $C$ be a program, $l$ an address, $v,v'$ values and $z,z'$
+		permissions with $z\neq m_W$, $z'\neq m_W$, $z \oplus z' = m_W$,
+		$v \neq v'$. And for $C$ two possibilities can be distinguished:
+		Firstly, $C$ is a sequential program. In that case \emph{Termination
+		Monoticity} (formally introduced in \ref{sec:soundness}) is given,
+		which means if $C$ terminates in a \emph{Heap} $h$ it also terminates
+		in a \emph{Heap} $h\ast h'$ for $h'$ is a compatible \emph{Heap}.
+		Assume
+		$$\{l\xmapsto{z}v\}C\{l\xmapsto{z}v'\}$$
+		is a partially correct and terminating Hoare-triple. With the
+		\emph{Frame Rule} follows
+		$$\{l\xmapsto{z}v \ast l\xmapsto{z'}v\}C\{l\xmapsto{z}v' \ast l\xmapsto{z'} v\}$$
+		Where \emph{Termination Monoticity} states that this Hoare-triple terminates
+		and the \emph{Frame Rule} states that this Hoare-triple is partially correct.
+		But the \emph{postcondition} is obviously false, and therefore there is a
+		contradiction, which means that $C$ can not change the value of the
+		memory cell with address $l$. The memory cell shows \emph{Passivity}.
+
+		Secondly, $C$ is concurrently executed program, which means $C$ might aquire
+		further access permissions by using permissions from a \emph{bundle}
+		$b$. This case is dealt with exemplatory, but the proof can be
+		accordingly generalised:
+		For the \emph{bundle} $b$ an invariant $I_b \equiv l\xmapsto{z'}-$ exists
+		and $C \equiv \text{with }b\text{ when true do } [l] := v' \text{ od}$.
+		Using the \emph{CCR Rule} one can show that:
+		$$\{l\xmapsto{z}v\}C\{l\xmapsto{z}v'\}$$
+		by the following proof:
+
+		\begin{lstlisting}[mathescape]
+$\{l\xmapsto{z}v\}$
+with $b$ when true do
+	$\{(l\xmapsto{z}v\ast l\xmapsto{z'}-) \land true\}$
+	$\therefore\{l\xmapsto{m_W}v\}$
+	$[l] := v';$
+	$\{l\xmapsto{m_W}v'\}$
+	$\therefore\{l\xmapsto{z}v'\ast l\xmapsto{z'}-\}$
+od
+$\{l\xmapsto{z}v'\}$
+		\end{lstlisting}
+
+		With the \emph{Frame Rule} it is possible to prove the  Hoare-triple:
+		$$\{l\xmapsto{z}v\ast l\xmapsto{z'}v\}C\{l\xmapsto{z}v'\ast l\xmapsto{z'}v\}$$
+		Now if $C$ is part of a set of concurrently executed programs as:
+		$C_1,\dots,C_n$ with $\exists j\in \{1,\dots,n\}.C_j = C$. Let $Q_1,\dots,Q_n$
+		be the according \emph{preconditions} and $R_1,\dots,R_n$ the \emph{postconditions}.
+		The \emph{Concurrency Rule} would lead for $(C_1\parallel\cdots\parallel C_n)$
+		to a \emph{precondition} with
+		$\{\cdots\ast I_b \ast l\xmapsto{z}v \ast l\xmapsto{z'}v \ast\cdots\}$. This
+		\emph{precondition} is not satisfyable because such a \emph{Heap} does not
+		exist. Therefore $C$ can not be part of a concurrent execution but this
+		was assumed, which means for a read permission \emph{Passivity} on the cell
+		is guaranteed.
+	\end{myproof}
+
+	\subsection{Soundness and race-freedom}
+	\label{sec:soundness}
+	After having introduced \emph{Separation Logic} and
+	\emph{Permission Accounting} as logical tools to reason about programs which
+	can be executed concurrently, share memory between each other and access
+	dynamically allocated memory, a proof for the soundness of the introduced
+	rules and the race-freedom of the approach of \emph{Permission Accounting}
+	would justify these approaches. This proof is given in \cite{seplogproof}
+	and due to its complexity it can not be given here.
+	Instead to convay an intuition on how to prove properties for
+	\emph{Separation Logic} a few definitions regarding soundness of rules for
+	sequentially executed programs which are based on \cite{sembasis} are
+	introduced and exemplatory the \emph{Frame Rule} is examined.
+
+	To examine formally the execution of a program it is understood as sequence
+	of configurations. Configurations are current state of a machine, which is
+	the state of the \emph{Heap} $h$, the state of the \emph{Store} $s$ and
+	potentially a sequence of commands (a program) $C$. A configuration $(s, h)$
+	where no more commands exist to be executed is called \emph{terminal}. A non
+	\emph{terminal} configuration is a triple $(C, s, h)$. On the set of
+	configurations the relation $\leadsto$ which was already utilized
+	above for defining the semantics of the commands in \emph{Permission
+	Accounting} is defined as the change of the configuration based on the
+	executed command. In the previous definitions a program $C$ was expected to
+	be well defined which means it does not access memory cells which are not
+	allocated but now the set of configurations can be extended with a
+	\textit{fault} state. The \textit{fault} state is reached if a memory cell
+	not present in the \emph{Heap} $h$ is accessed. To get an intuition on
+	configurations and $\leadsto$ a few relations are given:
+	\begin{mydef}[Configuration Transitions]
+	For a \emph{Heap} $h$, a \emph{Store} $s$, an integer expression $E$, a
+	boolean expression $B$ and programs $C, C'$ the following relations on
+	configurations are defined:
+	\begin{enumerate}
+	\item \begin{prooftree}
+			\AxiomC{$\llbracket E \rrbracket s \notin \textit{dom}(h)$}
+			\UnaryInfC{($x := [E],s,h)\leadsto \textit{fault}$}
+			\end{prooftree}
+	\item \begin{prooftree}
+			\AxiomC{$\llbracket B \rrbracket s \equiv \textit{true}$}
+			\UnaryInfC{(while $B$ do $C$ od, $s, h)\leadsto$(($C$; while $B$ do $C$ od), $s$, $h)$}
+			\end{prooftree}
+	\item \begin{prooftree}
+			\AxiomC{$\llbracket B \rrbracket s \equiv \textit{false}$}
+			\UnaryInfC{(if $B$ then $C$ else $C'$, $s,h)\leadsto (C', s, h)$}
+			\end{prooftree}
+	\end{enumerate}
+	\end{mydef}
+
+	The relation $\textit{Conf} \leadsto^\ast \textit{Conf'}$ states that
+	there is a $\leadsto$-sequence of configurations from \textit{Conf} to
+	\textit{Conf'}.
+	In the following a configuration is called \emph{safe} if the execution from
+	this configuration does not lead to a fault state.
+	\begin{mydef}[Safety]
+		A configuration $(C,s,h)$ is \emph{safe} if $(C,s,h)$ $\slashed{\leadsto}^\ast$ \textit{fault}.
+	\end{mydef}
+	This can be used to expand partial correctness to grand safety as well:
+	\begin{mydef}[Partial Correctness with Safety]
+		The Hoare-triple $\{P\}C\{R\}$ for a \emph{precondition} $P$, a
+		\emph{postcondition} $R$ and a program $C$ is \emph{partially correct}
+		if for all \emph{Stores} $s$ and \emph{Heaps} $h$ applies:
+		if $s,\;h\models P$ then
+			$(C,s,h)$ is safe, and if $(C,s,h)\leadsto^\ast (s',h')$ for a
+			\emph{Store} $s'$ and a \emph{Heap} $h'$ then $s',\;h'\models R$.
+	\end{mydef}
+	As already mentioned programs exist which do not terminate. Such programs
+	have an infinite $\leadsto$-sequence from their starting configuration.
+	All programs which terminate for every state and which are partially correct
+	are called totally correct:
+	\begin{mydef}[Total Correctness]
+		The Hoare-triple $\{P\}C\{R\}$ for a \emph{precondition} $P$, a
+		\emph{postcondition} $R$ and a program $C$ is \emph{totally correct}
+		if for all \emph{Stores} $s$ and \emph{Heaps} $h$ applies:
+		if $s,\;h\models P$ then there is no infinite $\leadsto$-sequence
+		starting from $(C,s,h)$ and if $(C,s,h) \leadsto (s',h')$ for
+		a \emph{Store} $s'$ and a \emph{Heap} $h'$ then $(s',h')\models R$.
+	\end{mydef}
+	In order to prove the \emph{Frame Rule} sound for partial and total
+	correctness it is essential to prove the locality of commands. Locality
+	is the property that commands executed on one part of the \emph{Heap}
+	do not affect any other part of the \emph{Heap} and that the behaviour of
+	the command is not affected by any other part of the \emph{Heap}. This
+	regards safety as well as termination of programs. Formally formulated
+	as the following properties:
+	\begin{myprop}[Safety Monotonicity]
+		For a program $C$, a \emph{Store} $s$ and \emph{Heaps} $h,h'$:
+		If $(C,s,h)$ is safe and $h\#h'$, then $(C,s,h\ast h')$ is safe.
+	\end{myprop}
+	\begin{myprop}[Termination Monotonicity]
+		For a program $C$, a \emph{Store} $s$ and \emph{Heaps} $h,h'$:
+		If there is no infinite sequence of configurations starting from
+		$(C,s,h)$ and $h\#h'$, then there is no infinite sequence of
+		configurations starting from $(C,s,h\ast h')$.
+	\end{myprop}
+	\begin{myprop}[Frame Property]
+		For a program $C$, \emph{Stores} $s,s'$, \emph{Heaps} $h_0,h_1,h'$:
+		If $(C,s,h_0)$ is safe and $(C,s,h_0\ast h_1) \leadsto^\ast (s',h')$
+		then a \emph{Heap} $h_0'$ exists with $(C,s,h_0)\leadsto^\ast (s',h_0')$
+		and $h' = h_0'\ast h_1$.
+	\end{myprop}
+	These properties are sufficient to prove the \emph{Frame Rule} sound by the
+	following argument:
+	\begin{mylem}[Soundness of the \emph{Frame Rule}]
+		From \emph{Safety Monotonicity}, \emph{Termination Monotonicity} and
+		the \emph{Frame Property} follows the soundness of the \emph{Frame Rule}
+		for partial and total correctness.
+	\end{mylem}
+	\begin{myproof}
+		Suppose $\{P\}C\{Q\}$ is a totally correct Hoare-triple. This means
+		that for any \emph{Heap} $h_P$ and \emph{Store} $s$ with $(s,h_P)\models P$:
+		$(C,s,h_P)\leadsto^\ast (s',h')$ gives us $(s',h')\models Q$. Let $s$
+		be a \emph{Store}.
+		Now let $h_R$ be any \emph{Heap} with $(s,h_R)\models R$. And $h_P$ any
+		\emph{Heap} with $(s,h_P)\models P$. Because $(C,s,h_P)$ is safe it follows
+		from \emph{Safety Monoticity} that $(C,s,h_P\ast h_R)$ is safe.
+		\emph{Termination Monoticity} gives the existence of a \emph{Heap} $h$ with
+		$(C,s,h_P\ast h_R) \leadsto^\ast (s',h)$. And for this \emph{Frame Property}
+		yields $h_P'$ with $h_P'\ast h_R = h$ and $(C,s,h_P)\leadsto^\ast (s',h_P')$.
+		Because $\{P\}C\{Q\}$ is totally correct and $(C,s,h_P)\leadsto^\ast (s',h_P')$
+		it follows that $(s',h_P')\models Q$. Because of the side condition of the
+		\emph{Frame Rule} the \emph{Stores} $s, s'$ agree on the values of every
+		variable free in $R$. This means because $(s,h_R)\models R$ that $(s',h_R)\models R$.
+		This gives $(s',h)\models Q\ast R$. Therefore the \emph{Frame Rule} is sound
+		for partial and total correctness.
+	\end{myproof}
+	This means if the properties of \emph{Termination Monoticity},
+	\emph{Safety Monoticity} and \emph{Frame Propery} can be proven for
+	\emph{Heaps} build from \emph{Permission Accounting} the soundness of the
+	\emph{Frame Rule} is given. As \cite{PermAcc} states the condition
+	$$\forall m\in M. m_W\oplus m \text{ is undefined}$$
+	ensures \emph{Frame Property} and \emph{Safety Monoticity}. This can be
+	shown by the following arguments:
+	\begin{myproof}[Frame Property of \emph{Heaps} with \emph{Permission Accounting}]
+		Let the premisses of the \emph{Frame Property} hold. In the following
+		$h, h_0, h_1, h_0'$ refers to \emph{Heaps} and $s$ to a \emph{Store}.
+
+		For $[E'] := E$: Because $([E'],s,h_0)$ is safe by assumption, for a value $v$:
+		$h_0(\llbracket E'\rrbracket s) = (v,m_W)$. This means that for $h_1$
+		holds $\llbracket E'\rrbracket s \notin \textit{dom}(h_1)$ and therefore
+		$[E'] := E$ does not affect $h_1$. With $h_0' = (h_0|\llbracket E'\rrbracket s = E)$
+		gives $([E'] = E,s,h_0)\leadsto^\ast s', h_0'$ and $h' = h_0'\ast h_1$.
+
+		For $\textit{dispose}(E)$: Let $l = \llbracket E \rrbracket s$. Because
+		$(\textit{dispose}(E),s,h_0)$ is safe, a value $v$ exists with 
+		$h_0(l) = (v, m_W)$. Therefore $l \notin \textit{dom}(h_1)$ and for
+		$h_0'$ is the \emph{Heap} for which $h_0 = h_0' \ast l\mapsto v$ follows
+		$(\textit{dispose}(E),s,h_0)\leadsto^\ast s', h_0'$ and $h' = h_0'\ast h_1$.
+
+		For $x := [E]$: Let $l = \llbracket E \rrbracket s$ and because of the
+		Safety of $(x:=[E],s,h_0)$ follows $l\in\textit{dom}(h_0)$ and with
+		$h_0' = h_0$ the \emph{Frame Property} follows immediatly.
+
+		For $\text{\emph{if }}B\text{\emph{ then }} C\text{\emph{ else }} C'$,
+		$\text{\emph{while }}B\text{\emph{ do }} C \text{\emph{ od}}$, $C_1;C_2$:
+		Consider a variant of \emph{Frame Property} as $(C,s,h_0)$ is
+		safe and $(C,s,h_0\ast h_1) \leadsto^\ast (C',s',h')$ then there is a
+		\emph{Heap} $h_0'$ with $(C,s,h_0)\leadsto^\ast (C',s',h_0)$ and $h'=h_0'\ast h_1$.
+		Now the proof works with induction by the derivation steps for \emph{while}
+		and \emph{if} and \emph{;} :
+		Let $(\text{\emph{while }} B \text{\emph{ do }} C \text{\emph{ od}},s,h_0)$
+		be safe and $(\text{\emph{while }} B \text{\emph{ do }} C \text{\emph{ od}},s,h_0)
+		\leadsto^\ast(C',s',h')$. If $B$ is false this is one of the atomic cases
+		for $(C, s, h_0)$, thus, $B$ is true:
+		$(\text{\emph{while }} B \text{\emph{ do }} C \text{\emph{ od}},s,h_0)\leadsto
+		 (C;\text{\emph{while }} B \text{\emph{ do }} C \text{\emph{ od}},s,h_0)$
+		 and with the induction hypothesis for this deriveration \emph{Frame Property}
+		 or its variant is already shown. This can be executed
+		 analogically for \emph{if} and \emph{;}.
+	\end{myproof}
+
+	\begin{myproof}[Safety Monoticity of \emph{Heaps} with \emph{Permission Accounting}]
+		If the configuration $(C,\;s,\;h)$ is safe there are two possiblities for
+		every $l\in\textit{dom}(h)$:
+		Firstly, the cell with address $l$ is only read. Then this right can not
+		be taken away by adding another \emph{Heap} $h'$. This means $(C,s,h\ast h')$
+		is safe as well.
+		Secondly, the cell with address $l$ is written, which means that for a
+		value $v$: $h(l) = (v, m_W)$ but this implies that for every \emph{Heap}
+		$h'$ for which $h\ast h'$ is defined, holds: $l \notin\textit{dom}(h')$.
+		Therefore $(C,s,h\ast h')$ is safe.
+	\end{myproof}
+	The proof of \emph{Termination Monoticity} works analogically to the proof
+	of \emph{Safety Monoticity}.
+	In conclusion the \emph{Frame Rule} is sound for \emph{Separation Logic} with
+	\emph{Permission Accounting} for sequential programs.
+	For a complete proof of soundness and race-freedom of concurrent programs
+	in \emph{Separation Logic} with \emph{Permission Accounting} see \cite{seplogproof}.
+

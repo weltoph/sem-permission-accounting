@@ -1,0 +1,115 @@
+\documentclass{scrartcl}
+
+\usepackage{amsmath}
+\usepackage{slashed}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{stmaryrd}
+\usepackage{bussproofs}
+\usepackage{listings}
+\usepackage{parcolumns}
+\usepackage{tikz}
+\usepackage{tcolorbox}
+
+\tcbuselibrary{theorems}
+
+\usetikzlibrary{matrix}
+
+	\tikzset{
+		table nodes/.style={
+			rectangle,
+			draw=black,
+			align=center,
+			minimum height=7mm,
+			text depth=0.5ex,
+			text height=2ex,
+			inner xsep=0pt,
+			outer sep=0pt
+		},
+		table/.style={
+			matrix of nodes,
+			row sep=\pgflinewidth,
+			column sep=\pgflinewidth,
+			nodes={
+				table nodes
+			},
+			execute at empty cell={\node[draw=none]{};}
+		}
+	}
+
+%-- theorem --
+%\newtheoremstyle{mydefstyle}{0.5cm}{0.5cm}{}{1cm}{}{}{1cm}{\thmname{#1}: \thmname{#3}}
+\theoremstyle{definition}
+
+\newtheorem*{mydef}{Definition}
+\newtheorem*{myprop}{Property}
+\newtheorem*{mylem}{Lemma}
+\newtheorem*{myexp}{Example}
+
+\theoremstyle{proof}
+\newtheorem*{myproof}{Proof}
+%-- colored box for definitions, maybe use later: --
+\newtcbtheorem{cmydef}{Definition}{colback=green!5,colframe=green!35!black,fonttitle=\bfseries}{th}
+
+\begin{document}
+\begin{titlepage}
+
+\begin{center}
+
+% -----------------------------------------------------
+% Upper part of the page 
+
+\textsc{\Large Seminar}\\
+\textsc{\Large Trends in Computer Aided Verification}\\[0.3cm]
+\textsc{\Large WS 14/15}\\[0.3cm]
+
+% Title
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\HRule \\[0.4cm]
+{ \huge \bfseries Permission Accounting in Separation Logic}\\[0.4cm]
+
+\HRule \\[3.5cm]
+
+% Author and supervisor
+	\begin{minipage}{0.4\textwidth}
+		\begin{flushleft} \large
+			\emph{Author:}\\
+			Christoph Welzel\\
+			(323734)
+		\end{flushleft}
+	\end{minipage}
+\hfill
+	\begin{minipage}{0.4\textwidth}
+		\begin{flushright} \large
+		\end{flushright}
+	\end{minipage}
+
+\vfill
+
+% Bottom of the page
+{\large \today}
+
+\end{center}
+%--------------------------
+
+\end{titlepage}
+\setcounter{page}{1}
+
+\tableofcontents
+
+%Section 1:
+\include{./text/Introduction}
+
+%Section 2:
+\include{./text/Introduction_to_Separation_Logic}
+
+%Section 3:
+\include{./text/Access_in_concurrent_Environments}
+
+%Section 4:
+\include{./text/Conclusion}
+
+\bibliography{./literature}
+\bibliographystyle{abbrv}
+\end{document}

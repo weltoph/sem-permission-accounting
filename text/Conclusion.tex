@@ -1,0 +1,29 @@
+\section{Conclusion}
+%	\begin{itemize}
+%		\item way to reason about heaps
+%		\item way to resourcing
+%		\item basis for tool assisted proofs
+%	\end{itemize}
+	In conclusion, \emph{Separation Logic} was introduced as a tool to reason
+	about mutable data structures in the \emph{Heap}. Therefore the syntax and
+	semantics of the logic were introduced. To work with concurrently executed
+	programs the fundamentals of sharing memory are introduced. Furthermore,
+	\emph{Permission Accounting} was defined to grant different permissions on
+	memory cells and the \emph{Passivity} of programs on memory cells for which
+	only read permission is given was proven. As mentioned the soundness and
+	race-freedom of this approach of \emph{Permission Accounting} are proven in
+	\cite{seplogproof}. This approach leads to interesting further ideas.
+	It is possible to adapt \emph{Permission Accounting} for the use in the
+	\emph{Store} \cite{storeperm}. Furthermore, the introduced abstraction of
+	the models for \emph{Permission Accounting} can be used to develop other
+	models which include other useful properties. In \cite{freshlook} for example
+	the property of \emph{Splittability} is introduced which states that a
+	permission can be infinitly splitted. As stated in \cite{PermAcc}
+	it is desirable to expand the term \emph{ressources} which can be shared
+	between concurrent programs to fit everything a program can manage(e. g.,
+	the used space, the processing time,\dots). And also, that the specification
+	of every program has to explicitly state which ressources are required. And
+	of course reasoning about programs is always interesting for computer aided
+	verification\footnote{smallfoot - a verification tool, based on
+	\emph{Separation Logic}; see http://www0.cs.ucl.ac.uk/staff/p.ohearn/smallfoot/}
+	\cite{freshlook}.

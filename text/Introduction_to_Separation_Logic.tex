@@ -1,0 +1,469 @@
+\section{On Separation Logic}
+	%Motivation:
+	\emph{Separation Logic} is an extension of the \emph{Hoare Calculus}.
+	It was developed to reason about programs which work with mutable data
+	structures within the dynamically allocatable memory. In order to deal with
+	dynamically allocatable memory a model later introduced as
+	\emph{Heap}, will be used which represents the allocated memory as
+	addressable cells. Also, a model for the variables in a program is
+	introduced which will be used to keep track of the values of program
+	variables in a central instance. This will be later on refered to as
+	\emph{Store}. The following introduction of \emph{Hoare Calculus} is
+	based on \cite{hoarecalc} and the introduction to \emph{Separation
+	Logic} mainly on \cite{Primer}.
+
+	\subsection{Preliminaries}
+	Because the following section relies on operating with partial finite
+	functions a few syntactical simplifications are used, namely:
+	For two finite partial functions $f, f'$ the syntax $f \# f'$ is used
+	to express disjunct domains of those functions(i.e.
+	$\textit{dom}(f)\cap\textit{dom}(f') = \emptyset$). Also, introducing
+	the union of finite partial functions as:
+	\begin{mydef}[Union of Finite Partial Functions]
+		For two finite partial functions $f_1, f_2 : D \rightharpoonup V$ the
+		union of those (written as
+		$f' = (f_1\bullet f_2) : D \rightharpoonup V$) is defined if $f_1 \# f_2$
+		as
+		$$
+			f'(x) =
+			\begin{cases}
+				f_1(x)             &\text{if } x \in \textit{dom}(f_1)\\
+				f_2(x)             &\text{if } x \in \textit{dom}(f_2)\\
+				\textit{undefined} &\text{otherwise}\\
+			\end{cases}
+		$$
+	\end{mydef}
+
+	Finally, $f' = (f|i\mapsto j)$ defines a finite partial function
+	which mirrors the mapping of $f$ except that $i$ maps to $j$, formally:
+	$$(f|i\mapsto j) (n) =
+		\begin{cases}
+			j &\text{if } n = i\\
+			f(n) &\text{if } n \in \textit{dom}(f)\setminus\{i\}\\
+			\text{undefined} &\text{otherwise}\\
+		\end{cases}
+	$$
+
+	\subsection{\emph{Hoare Calculus}}
+	\emph{Hoare Calculus} was introduced in \cite{hoarecalc} as an approach to
+	give assertions for a computer program. This approach focuses on an deductive
+	reasoning about the program code which is written in a formal language. For
+	simplicity usually a small language whit a limited amount of commands is
+	used. Although these commands are sufficient to define all computable functions
+	this approach can be applied to more complex languages in the
+	same fashion. The used language lacks (for now) the ability to deal with
+	pointers and allocations of dynamically managed memory. This will be added
+	further on. The assertions for the program are expressed using mathematical
+	logic, specifically first-order logic. Because the values of variables
+	after a program's execution are often dependent on their input values, assertions
+	can be given which are expected before a program
+	executes. To refer to an assertion which states properties of the variables
+	before the program's execution the term \emph{precondition} is used and for
+	an assertion after the program's execution the term \emph{postcondition}.
+	\emph{Hoare Calculus} can be used to check a \emph{postcondition} for a
+	program by applying defined rules or axioms (which will be introduced
+	later on) to find the necessary \emph{precondition}.
+
+	To connect a \emph{precondition} $P$, a program $Q$ and a \emph{postcondition}
+	$R$ the following syntax of Hoare-triple is used:
+	$$ \{P\}Q\{R\} $$
+	Note that $R$ refers to the moment after the execution of $Q$ but as one
+	easily can imagine there exist programs which do not terminate because a loop
+	is executed infinitly or fail to
+	execute because of technical limitations like insufficient memory space or
+	attempted access to memory which is denied by the operating system. In
+	such a case the \emph{postcondition} $R$ is never reached, which makes every
+	\emph{postcondition} valid. Thus, the following definition for correctness 
+	takes into account that programs might not terminate by assuring the
+	\emph{postcondition} only for terminating programs:
+	\begin{mydef}[partial correctness]
+		The Hoare-triple of a \emph{precondition} $P$, a program $Q$ and a
+		\emph{postcondition} $R$
+		$$ \{P\}Q\{R\} $$
+		is called \emph{partially correct} if given
+		$P$ is true before the execution of $Q$, $R$ is true after $Q$ terminates
+		succesfully.
+	\end{mydef}
+	Termination implies that no extern instance like the
+	operating system stopped the program, but the sequence of commands of the
+	program ended. In order to reason about complex programs it is helpful if not
+	necessary to define sound axioms and rules which can be applied to prove
+	programs. Some rules and axioms are
+	given below, but for a more comprehensive introduction see \cite{hoarecalc}:
+
+	One of the basic commands of a programming language is the assignment
+	of a value to a variable. This is expressed in the used formal language as
+	$$x:=E$$
+	where $E$ is any expression consisting of defined operators and variables.
+	In order to keep this introduction short the set of operators is not defined
+	but it can be assumed to consist of basic mathematical operators like
+	$+,-,\cdot,\dots$
+	An assertion which is true after an assignment $x:=E$ needs to be true before
+	the assignment but where the expression $E$ replaces all occurences of $x$.
+	Using a simplifying syntax $P[x/E]$ for an assertion $P$ where every occurance
+	of $x$ is replaced by the expression $E$, this can be defined as the \emph{Axiom of Assignment}:
+	\begin{mydef}[Axiom of Assignment]
+		For an assertion $P$ the Hoare-triple
+			$$\{P[x/E]\} x:=E \{P\}$$
+		is partially correct.
+	\end{mydef}
+
+	Next, a rule is given which is used to reason about programs respecting
+	their sequential execution. Normally a program
+	consists of different commands which are executed one after another. Therefore
+	the notation $Q_1;Q_2$ is used to express a composition of programs where
+	the programpart $Q_1$ is executed and after its successful termination $Q_2$ is
+	executed.
+	Note that $Q_i$ can be a composition of programs itself and this way
+	arbitrary complex programs can be considered by proving every command on its
+	own. Now, if $Q_1$
+	guarantees a certain \emph{postcondition} which is
+	the \emph{precondition} for $Q_2$ then the \emph{postcondition} for $Q_2$ can
+	be guaranteed for the composition $Q_1;Q_2$ if the \emph{precondition} of $Q_1$
+	is met. More formally this can be expressed in the \emph{Rule of Composition}:
+	\begin{mydef}[Rule of Composition]
+		If $\{P\}Q_1\{T\}$ and $\{T\}Q_2\{R\}$ are partially correct so is
+		   $\{P\}Q_1;Q_2\{R\}$.
+	\end{mydef}
+
+	To prove a sequence of statements it can be useful to give the assertions a
+	certain form to meet a rule or axiom. But this change in form needs to be
+	sound and therefore a rule which allows to use logical implications of assertions for
+	proving correctness of Hoare-triples is introduced. To separate implications
+	of assertions and implications in an assertion two syntactical types of
+	logical implication are distinguished. In an assertion
+	the notation $P\Rightarrow R$ defines a logical implication from two logical
+	terms $P$ to $R$,
+	but for assertions $P_1$, $P_2$ the notation $\{P_1\} \therefore \{P_2\}$ will
+	be used to express a logical implication from one assertion to another. Now
+	assume there is a Hoare-triple $\{P\}Q\{S\}$ which is partially correct. And
+	$\{S\}\therefore\{R\}$ is true. Obviously $\{P\}Q\{R\}$ has to be
+	partially correct as well, because with a \emph{precondition} $P$ a more strict
+	\emph{postcondition} $S$ is given which logically implies $R$. In the same way
+	a more strict \emph{precondition} which logically implies a sufficient
+	\emph{precondition} can be used instead of the less strict but sufficient
+	\emph{precondition}. This is called the \emph{Rule of Consequence} and can be
+	formally expressed as:
+	\begin{mydef}[Rule of Consequence]
+		If $\{P\}Q\{R\}$ is partially correct and $\{R\}\therefore\{S\}$
+		then $\{P\}Q\{S\}$ is partially correct.\\
+		If $\{P\}Q\{R\}$ is partially correct and $\{S\}\therefore\{P\}$
+		then $\{S\}Q\{R\}$ is partially correct.
+	\end{mydef}
+
+
+	To conclude this small introduction to \emph{Hoare Calculus} a last rule
+	is introduced. The \emph{Rule of Iteration} is used to prove properties of
+	loops. To begin with, the syntax of a loop for the used programming language
+	is introduced. For a boolean expression $B$ and a programpart $C$ the syntax
+	\begin{center} while $B$ do $C$ done \end{center} is used to express the
+	execution of $C$ while $B$ is evaluated to true. In order to give assertions
+	for loops loop-invariants are used. A loop-invariant is an assertion which
+	is true before the loop and can be guaranteed after every execution of $C$.
+	To give a simpel example the assertion $\{\textit{true}\}$ is always for every
+	loop an invariant, but of course one with little value regarding assertions
+	of a program's properties. But because a loop-invariant is true after every
+	execution of the loop and before the loop it is especially true after the
+	loop. And after the loop it is evident that $B$ can not evaluate to true.
+	Therefore after a loop the invariant as well as the negated condition can
+	be asserted for the program state, formally defined:
+	\begin{mydef}[Rule of Iteration]
+		For a boolean expression $B$, an assertion $P$ and a program $C$: If
+		$\{P \land B\}C\{P\}$ is partially correct, so is
+		$\{P\}\text{while } B \text{ do } C \text{ done}\{\lnot B \land P\}$.
+	\end{mydef}
+
+
+	\subsection{\emph{Store} and \emph{Heap}}
+	%kurze Einführung was Heap und Store sind:
+	As mentioned above \emph{Hoare Calculus} does not deal explicitly with
+	dynamically allocatable memory and mutable structures within the memory.
+	But to reason about programs which use dynamic allocation of memory it is
+	useful to separate the memory into two parts, the \emph{Store} and the
+	\emph{Heap}. The \emph{Store} is used in \emph{Hoare Calculus} because by
+	using program variables within assertions it is implicity assumed that those
+	variables are somehow mapped to a value.
+	This finds formalisation in the \emph{Store} which maps the
+	used variables in a program to integer values. The used variables of
+	a program are a subset of all possible variables, the set \emph{Vars}.
+	And the set of integer values is refered to as \emph{Integers}, note
+	that this set might depend on the machine the program is executed on.
+	
+	\begin{mydef}[\emph{Store}]
+		A \emph{Store} is a finite partial function
+		$s:\textit{Vars}\rightharpoonup \textit{Integers}$
+	\end{mydef}
+	\begin{myexp}[\emph{Store}]
+	A possible representation of a \emph{Store} $s$.\\
+	\begin{center}
+	\begin{tikzpicture}
+		\matrix (store) [table, text width=7mm, name=table]
+			{ x & y & z \\
+			 -7 & 3 & 7 \\ };
+	\end{tikzpicture}
+	\end{center}
+	Here the variable
+	$x$ holds the value $-7$, $y$ the value $3$ and $z$ $7$, thus:
+	$s(x) = -7$, $s(y) = 3$, $s(z) = 7$.
+	Furthermore $\text{dom}(s) = \{x,y,z\}$.
+	\end{myexp}
+
+	The \emph{Heap} is a formalisation of addressable memory which can be
+	dynamically allocated by a program. It manages memory cells which contain
+	integer values and are uniquely identified by a natural number as their
+	address.
+	\begin{mydef}[\emph{Heap}]
+		A \emph{Heap} is a finite partial function
+		$h:\mathbb{N} \rightharpoonup \textit{Integers}$
+	\end{mydef}
+	\begin{myexp}[\emph{Heap}]
+	A possible state for a \emph{Heap} $h$.\\
+	\begin{center}
+	\begin{tikzpicture}
+		\matrix (store) [table, text width=7mm, name=table]
+			{ 3 &  4 &  5 &  6 \\
+			  7 & 12 & -6 & -1 \\ };
+	\end{tikzpicture}
+	\end{center}
+	\label{fig:heap}
+	 Here the cell with address
+	$3$ holds the value $7$, the cell with address $4$ the value 12,
+	the cell with address $5$ the value -6 and the cell with address $6$ the
+	value -1,
+	thus: $h(3) = 7$, $h(4) = 12$, $h(5) = -6$, $h(6)=-1$.
+	Furthermore $\text{dom}(h) = \{3,4,5,6\}$.
+	\end{myexp}
+
+	%semantik, wie man store Variablen interpretiert:
+	Because the mapping of the program's variables is now formalised by the
+	\emph{Store} an expression $E$ which is for example used in the
+	\emph{Axiom of Assignment} in \emph{Hoare Calculus} needs interpretation.
+	The \emph{Store} gives the syntactical objects of variables their values. Therefore
+	the syntax $\llbracket E \rrbracket s$ will be used to refer to the expression
+	$E$ where all variables are interpreted by the \emph{Store} $s$. Referring to
+	the example of the \emph{Store} above the expression $x + y$ is evaluated to
+	$\llbracket x + y \rrbracket s \equiv s(x) + s(y) = -7 + 3 = 4$. The same
+	applies to boolean expressions $B$ which are evaluated over a \emph{Store}
+	$s$ written as $\llbracket B \rrbracket s$. For example using the \emph{Store}
+	$s$ from the example above $x + 7 > z$ is evaluated to
+	${\llbracket x + 7 > z \rrbracket s} {\;\equiv s(x) + 7 > s(z)}
+	 {\;\equiv -7 + 7 > 7} {\;\equiv  0 > 7} {\;\equiv \textit{false}}$.
+
+	\subsection{Logical Operators}
+	In order to use the model of \emph{Stores} and \emph{Heaps} the used logic
+	has to be able to state properties of those.
+	To this aim the logic is enriched with some expressions for which an intuition
+	will be given initially and which will be then defined in terms of
+	\emph{Heaps} and \emph{Stores} later on.
+
+	Firstly, the "$\mapsto$ operator" is used to connect the address of one cell
+	with its content. For example $5\mapsto 2$ states that the cell which is
+	addressed by $5$ holds the value $2$ or more generally, $E\mapsto F$ states
+	that the value of the cell which is addressed by the value of the expression
+	$E$ is the value of the expression $F$.
+
+	Secondly, the $\ast$-operator is used to connect two assertions which are
+	given for two disjunctive parts of the current state of the \emph{Heap}.
+	That means $P\ast Q$ for two assertions $P,Q$
+	expresses that the allocated memory cells can be split into two independent
+	parts where one satisfies $P$ and the other satisfies $Q$.
+
+	Thirdly, the expression \textit{emp} is used to express that there are no cells
+	in the \emph{Heap} allocated yet.
+
+	Fourthly, the meaning of the $\forall$-operator slightly changes to its common
+	interpretation because the
+	\emph{Store} is used to map variables to values. Because the statement
+	$\forall x.P$ for an assertion $P$ needs to be true for
+	a \emph{Heap} and a \emph{Store} for every possible value $x$ can hold. But
+	$x$ is evaluated through the \emph{Store} which means that the definition of
+	$\forall$ is adjusted to take that into account. This applies in the same way
+	to the $\exists$-operator.
+
+	With this intuition in mind the definitions of the operator for \emph{Stores}
+	and \emph{Heaps} follow naturally. For those
+	assume that $s$ is a \emph{Store}, $h,h_1,h_2$ are \emph{Heaps}, $B$ is a
+	boolean expression and $P$ is an assertion, and the syntax $s, h \models P$
+	means that the assertion $P$ holds for the current state of the \emph{Store}
+	$s$ and the \emph{Heap} $h$.
+	\begin{mydef}[Logical Assertions]
+		The semantic definitions for the \emph{logical assertions} are:\\
+		\begin{center}
+		\begin{tabular}{lll}
+			$s, h \models E\mapsto F$ &iff &$\llbracket E\rrbracket s  = \textit{dom}(h) \text{ and }
+			                               h(\llbracket E\rrbracket s) = \llbracket F\rrbracket s$ \\
+			&&\\
+			$s, h \models P\ast Q$ &iff &$\exists h_0,h_1.\;h_0\#h_1,\;h_0\bullet h_1=h,\;
+			s,h_0 \models P \text{ and } s,h_1\models Q$\\
+			&&\\
+			$s, h \models\textit{emp}$ &iff  &$\textit{dom}(h) = \emptyset$\\
+			&&\\
+			$s, h \models B$ &iff &$\llbracket B\rrbracket s \equiv \textit{true}$\\
+			&&\\
+			$s, h \models \forall x.P$ &iff &$\forall v \in \textit{Integers}.(s|x\mapsto v),h \models P$\\
+			&&\\
+			$s, h \models \exists x.P$ &iff &$\exists v \in \textit{Integers}.(s|x\mapsto v),h \models P$\\
+		\end{tabular}
+		\end{center}
+	\end{mydef}
+	Note that for $E\mapsto F$ the \emph{Heap} consists of only one cell, but
+	with $\ast$ more complex \emph{Heaps} can be described. For example for the
+	\emph{Heap} $h$ and the \emph{Store} $s$ from the
+	examples above applies $s, h \models y\mapsto 7\ast 4\mapsto 12
+	\ast 5\mapsto x+1\ast 6\mapsto -1$.
+
+	\subsection{Program Syntax}
+	As mentioned in the introduction to \emph{Hoare Calculus} the formal language
+	used to define programs lacks a syntax of accessing memory cells in the
+	\emph{Heap}. In order to introduce such a syntax and connect it to the
+	corresponding logical assertions further axioms are introduced below.
+
+	First of all, there is no explicit way to state that a variable is used as
+	reference to a memory cell. Rather every
+	natural number can be interpreted as pointer. Therefore the syntax $[n]$ for
+	$n\in\mathbb{N}$ is used as the content of the cell with address $n$.
+	For example if for the current \emph{Heap} $h$ the following holds: $3\in\textit{dom}(h)$
+	and $h(3) = 5$ then in the program the condition statement $([3] = 5)$ would evaluate to
+	\textit{true}. For the definition of the new axioms one syntactical simplification
+	is introduced as $E \mapsto -$ which is an abbrevation for
+	$\exists y.E\mapsto y$. For the following definitions $E,F$ are integer
+	expressions(expressions that are evaluated to an integer value by the
+	programming language), $m$ is an integer and $x$ is a variable currently defined in
+	the \emph{Store} $s$.
+	\newcounter{AxiomIndex}
+	\setcounter{AxiomIndex}{1}
+	\begin{mydef}[Axioms of Referenced Access]
+		The Hoare-triples\\
+		\begin{center}
+		\begin{tabular}{llll}
+			\arabic{AxiomIndex}\stepcounter{AxiomIndex}&
+			$\{ E \mapsto - \}$ &$[E] := F$ &$\{ E \mapsto F \}$\\
+			&&&\\
+			\arabic{AxiomIndex}\stepcounter{AxiomIndex}&
+			$\{E \mapsto n \land \llbracket x\rrbracket s = m\}$ &
+				$x := [E]$ &$\{\llbracket x \rrbracket s=n \land E[m/x]\mapsto n\}$\\
+			&&&\\
+			\arabic{AxiomIndex}\stepcounter{AxiomIndex}&
+			$\{E \mapsto - \}$ &$\textit{dispose}(E)$ &$\{\textit{emp}\}$\\
+			&&&\\
+			\arabic{AxiomIndex}\stepcounter{AxiomIndex}&
+			$\{\textit{emp}\}$ &$x := \textit{new}()$ &$\{x\mapsto -\}$\\
+			&&\\
+		\end{tabular}
+		\end{center}
+		are partially correct.
+	\end{mydef}
+	Note that new() returns a memory address which is not yet in the domain
+	of the \emph{Heap} and in the second axiom the assignment
+	of a value to $x$ can change the value of $E$. This is the reason
+	for using the logical variable $m$ which persists through the assignment
+	to replace occurences of $x$ in $E$. The definition of \textit{dispose} is
+	taken from \cite{PermAcc}.
+
+	In order to conclude the section about \emph{Separation Logic} the
+	\emph{Frame Rule} is introduced. The \emph{Frame Rule} is used to reason
+	locally about programs. This means for any subprogram it is only necessary
+	to give assertions about the heap-cells which are actually used and modified
+	in the subprogram. Therefore any other cell in the \emph{Heap} does not have
+	effect on the subprogram. The \emph{Frame Rule} is presented as interference
+	rule:
+	\begin{mydef}[Frame Rule]
+		For a program $C$ and assertions $P,Q,R$ holds:
+		\begin{prooftree}
+			\AxiomC{$\{P\}C\{Q\}$}
+			\RightLabel{$\textit{modifies}(C)\cap\textit{free}(R) = \emptyset$}
+			\UnaryInfC{$\{P\ast R\}C\{Q\ast R\}$}
+		\end{prooftree}
+	where $\textit{modifies}(C)$ is the set of variables modified by $C$ and
+	$\textit{free}(R)$ the set of free variables in $R$.
+	\end{mydef}
+	These are the used rules and axioms for \emph{Separation Logic} in this paper.
+	But as stated in \cite{freshlook} it is possible to work with other approaches
+	to model the memory and mutable data structures therefore the presented
+	axioms and rules are only a representative set.
+	Following one small example will be examined:
+	\begin{myexp}[Highest Value of Array]
+		This example is a procedure which determines the highest value
+		of an array. Because there is no defined syntax for an array it
+		is expected to be a consecutive block of memory cells. The procedure
+		takes a pointer to the first cell of the array and the length of the
+		array. Firstly, a possible implementation is given, where \emph{skip}
+		is the command that does nothing:
+		\begin{lstlisting}[mathescape]
+procedure maxValue($l$,$n$) {
+	maxV := [l];
+	m := 1;
+	while(m < n) {
+		if(maxV < [l + m]) {
+			maxV := [l + m];
+		} else {
+			skip;
+		}
+		m := m + 1;
+	}
+}
+		\end{lstlisting}
+		Now in place reasoning is used to prove that \emph{maxV} will hold
+		the maximal value of the array at the end of the procedure. For the
+		programming lines comments are given which states the axiom or rule used to
+		modify the assertions.
+		\begin{lstlisting}[mathescape,tabsize=2,escapeinside={-<}{>-}]
+-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s > 0\}$}>-
+// the array needs to have at least one element
+// and to be a consecutive block of memory cells
+procedure maxValue($l$,$n$) {
+-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s > 0\}$}>-
+-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+-<\textcolor{green}{$\llbracket maxV \rrbracket s = \llbracket maxV \rrbracket s \land \llbracket m \rrbracket s = \llbracket m \rrbracket s\}$}>-
+	maxV := [l]; // Axioms of Referenced Access
+	m := 1; // Axiom of Assignment
+	-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+	-<\textcolor{green}{$\llbracket maxV \rrbracket s = v_1 \land \llbracket m \rrbracket s = 1\}$}>-
+	// loop invariant is: $m \leq n \land maxV = \max_{1\leq j\leq m}v_j$
+	-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+	-<\textcolor{green}{$m \leq n \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j\}$}>-
+	while(m < n) {
+	-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+	-<\textcolor{green}{$m \leq n \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j\land \llbracket m \rrbracket s < \llbracket n \rrbracket s\}$}>-
+		if(maxV < [l + m]) { // if-Rule
+			-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+			-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j$}>-
+			-<\textcolor{green}{$\land \llbracket m \rrbracket s < \llbracket n \rrbracket s \land \llbracket maxV \rrbracket s < v_{m+1}\}$}>-
+			-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+			-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land v_{m+1} = \max_{1\leq j\leq m + 1}v_j$}>-
+			-<\textcolor{green}{$\land \llbracket m \rrbracket s < \llbracket n \rrbracket s \}$}>-
+			maxV := [l + m]; // Axioms of Referenced Access
+			-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+			-<\textcolor{green}{$\llbracket m\rrbracket s\leq\llbracket n\rrbracket s\land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m + 1}v_j$}>-
+			-<\textcolor{green}{$\land\llbracket m\rrbracket s<\llbracket n\rrbracket s\}$}>-
+		} else {
+			skip;
+			-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+			-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j$}>-
+			-<\textcolor{green}{$\land \llbracket m \rrbracket s < \llbracket n \rrbracket s \land \llbracket maxV \rrbracket s \geq v_{m+1}\}$}>-
+			-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+			-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m + 1}v_j$}>-
+			-<\textcolor{green}{$\land \llbracket m \rrbracket s < \llbracket n \rrbracket s \}$}>-
+		}
+		-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+		-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m + 1}v_j$}>-
+		-<\textcolor{green}{$\land \llbracket m \rrbracket s < \llbracket n \rrbracket s \}$}>-
+		-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+		-<\textcolor{green}{$\llbracket m+1\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m + 1}v_j\}$}>-
+		m := m + 1; // Axiom of Assignment
+		-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+		-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j\}$}>-
+	}
+	-<\textcolor{green}{$\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+	-<\textcolor{green}{$\llbracket m\rrbracket s \leq \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j$}>-
+	-<\textcolor{green}{$\land \llbracket m\rrbracket s\geq \llbracket n\rrbracket s\}$}>-
+	-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+	-<\textcolor{green}{$\llbracket m\rrbracket s = \llbracket n\rrbracket s \land \llbracket maxV\rrbracket s = \max_{1\leq j\leq m}v_j\}$}>-
+	-<\textcolor{green}{$\therefore\{l\mapsto v_1\ast l+1\mapsto v_2\ast\cdots\ast l+n-1\mapsto v_n\land\llbracket n\rrbracket s>0 \land$}>-
+	-<\textcolor{green}{$\land \llbracket maxV\rrbracket s = \max_{1\leq j\leq n}v_j\}$}>-
+}
+		\end{lstlisting}
+	As this example shows it is a daunting task to reason about programs by hand.
+	But the assertions above prove that the variable \emph{maxV}
+	holds the highest value of the array, just as requested.
+	\end{myexp}

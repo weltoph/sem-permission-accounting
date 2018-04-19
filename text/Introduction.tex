@@ -1,0 +1,41 @@
+\section{Introduction}
+%	\begin{itemize}
+%		\item Concurrency
+%		\item shared access variables
+%		\item logical approach, reasoning about heaplets separatly $\rightarrow$ Separation Logic
+%	\end{itemize}
+	Because the requirements for computer programs regarding their performance
+	as well as their correctness increase there are two recent developments.
+	Firstly, to increase the performance programs rely more and more on
+	concurrency. Secondly, the verification of software becomes more and more
+	important. To address verification of programs the \emph{Hoare Calculus}
+	was developed as possibility to reason about programs. But with increasing
+	complexity of programs and the usage of the dynamically managed memory of
+	machines the \emph{Hoare Calculus} was not the appropiated tool to verify
+	those programs. Additionally, due to the increasing importance of concurrency
+	new challenges arise like dealing with race conditions and shared memory.
+	To address these challenges \emph{Separation Logic} was introduced which
+	extends \emph{Hoare Calculus} with possibilities to reason about mutable
+	data in the dynamically managed memory of the machine. This is achieved by
+	separating this memory in independent parts which can be examined
+	individually. And because these parts are independent concurrent programs
+	can work on separated parts of the memory without interfering with each
+	other. Therefore \emph{Separaion Logic} can be applied to reason about
+	mutable data structures as well as concurrently executed programs. Additionally,
+	it is sometimes reasonable to allow multiple concurrent programs to share
+	memory. In order to deal well with shared memory a mechanism of \emph{Permission
+	Accounting} is used which gives a possibility to limit access to memory.
+	This is used to avoid race conditions.
+	
+	This paper starts with an introduction
+	on the \emph{Hoare Calculus} and the extention, \emph{Separation Logic}.
+	Further on, it is dealt with concurrency in \emph{Separation Logic} by
+	defining the appropiated mechanisms to provide the logical basis to reason
+	about shared memory. This leads to \emph{Permission Accounting} which gives
+	a possibility to decorate memory cells with permissions. Although primarily
+	meant as introduction to the different logical and syntactical fundamentals
+	of \emph{Separation Logic} and \emph{Permission Accounting} a
+	few properties can be shown in this paper like the \emph{Passivity} of commands on memory
+	cells for which only read permission is given or the soundness of the
+	\emph{Frame Rule} for sequential programs which use \emph{Permission
+	Accounting}.
